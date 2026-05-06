@@ -15,3 +15,12 @@ export function tryHealthRoute(
   }
   return false;
 }
+
+/**
+ * Returns true if the given request matches the health route.
+ * Useful for logging or middleware that needs to identify health checks
+ * without executing the handler.
+ */
+export function isHealthRoute(req: IncomingMessage): boolean {
+  return req.method === "GET" && req.url === "/health";
+}
