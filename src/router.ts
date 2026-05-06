@@ -1,64 +1,47 @@
-import { IncomingMessage, ServerResponse } from 'http';
-import { fanout, Endpoint, FanoutOptions, DeliveryResult } from './fanout';
+import { IncomingMessage, ServerResponse } from "http";
+import { tryMetricsRoute } from "./metricsRoute";
+import { tryHealthRoute } from "./healthRoute";
+import { fanout } from "./fanout";
+import { Config } from "./config";
+import { Logger } from "./logger";
+import { recordRequest } from "./metrics";
 
-export interface RouteConfig {
-  path: string;
-  endpoints: Endpoint[];
-  fanoutOptions?: FanoutOptions;
-}
+export function buildRouter(config: Config, logger: Logger) {
+  return async function router(
+    req: IncomingMessage,
+    res: ServerResponse
+  ): Promise<void> {
+    if (tryHealthRoute(req, res)) return;
+    if (tryMetricsRoute(req, res)) return;
 
-export interface WebhookEvent {
-  receivedAt: string;
-  headers: Record<string, string | string[] | undefined>;
-  body: unknown;
-}
+    if (req.method !== "POST") {
+      res.writeHead(405, { "Content-Type": "text/plain" });
+      res.end("Method Not Allowed");
+      return;
+    }
 
-export async function readBody(req: IncomingMessage): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.setEncoding('utf8');
-    req.on('data', (chunk) => (raw += chunk));
-    req.on('end', () => {
-      try {
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch {
-        resolve(raw);
-      }
+    recordRequest();
+
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    await new Promise<void>((resolve) => req.on("end", resolve));
+    const body = Buffer.concat(chunks).toString();
+
+    logger.info("incoming webhook", {
+      method: req.method,
+      url: req.url,
+      bodyLength: body.length,
     });
-    req.on('error', reject);
-  });
-}
 
-export function buildRouter(routes: RouteConfig[]) {
-  const routeMap = new Map(routes.map((r) => [r.path, r]));
+    const results = await fanout(config.targets, body, logger);
+    const allOk = results.every((r) => r.ok);
 
-  return async function handler(req: IncomingMessage, res: ServerResponse) {
-    if (req.method !== 'POST') {
-      res.writeHead(405, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Method Not Allowed' }));
-      return;
-    }
-
-    const url = req.url ?? '/';
-    const route = routeMap.get(url);
-
-    if (!route) {
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'No route configured for this path' }));
-      return;
-    }
-
-    const body = await readBody(req);
-    const event: WebhookEvent = {
-      receivedAt: new Date().toISOString(),
-      headers: req.headers as Record<string, string | string[] | undefined>,
-      body,
-    };
-
-    const results: DeliveryResult[] = await fanout(route.endpoints, event, route.fanoutOptions);
-    const allOk = results.every((r) => r.success);
-
-    res.writeHead(allOk ? 200 : 207, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ results }));
+    const status = allOk ? 200 : 207;
+    const responseBody = JSON.stringify({ results });
+    res.writeHead(status, {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(responseBody),
+    });
+    res.end(responseBody);
   };
 }
