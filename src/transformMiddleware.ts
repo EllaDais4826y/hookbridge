@@ -54,3 +54,24 @@ export function addHeaderFieldTransform(field: string, headerName: string): Tran
     }
   };
 }
+
+/**
+ * Creates a transform that renames a top-level key in a JSON body.
+ * If the source key does not exist, the body is returned unchanged.
+ *
+ * @param fromKey - The existing key to rename.
+ * @param toKey   - The new key name.
+ */
+export function renameKeyTransform(fromKey: string, toKey: string): TransformFn {
+  return (body: Buffer): Buffer => {
+    try {
+      const obj = JSON.parse(body.toString("utf8"));
+      if (!(fromKey in obj)) return body;
+      obj[toKey] = obj[fromKey];
+      delete obj[fromKey];
+      return Buffer.from(JSON.stringify(obj), "utf8");
+    } catch {
+      return body;
+    }
+  };
+}
