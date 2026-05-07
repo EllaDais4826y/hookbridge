@@ -62,4 +62,22 @@ describe("createRateLimiter", () => {
     await new Promise((r) => setTimeout(r, 60));
     expect(fastLimiter.isAllowed("f")).toBe(true);
   });
+
+  it("clearAll resets all keys", () => {
+    // Exhaust the limit for multiple keys
+    limiter.isAllowed("x");
+    limiter.isAllowed("x");
+    limiter.isAllowed("x");
+    limiter.isAllowed("y");
+    limiter.isAllowed("y");
+    limiter.isAllowed("y");
+    expect(limiter.isAllowed("x")).toBe(false);
+    expect(limiter.isAllowed("y")).toBe(false);
+
+    limiter.clearAll();
+
+    // Both keys should be allowed again after clearAll
+    expect(limiter.isAllowed("x")).toBe(true);
+    expect(limiter.isAllowed("y")).toBe(true);
+  });
 });
