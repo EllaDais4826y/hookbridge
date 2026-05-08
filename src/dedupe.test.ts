@@ -57,6 +57,16 @@ describe("TTL eviction", () => {
     await new Promise((r) => setTimeout(r, 10));
     expect(isDuplicate("fresh-id")).toBe(true);
   });
+
+  it("evicts only expired entries, retains fresh ones", async () => {
+    configureDedupe({ ttlMs: 50 });
+    markSeen("old-id");
+    await new Promise((r) => setTimeout(r, 60));
+    markSeen("new-id");
+    expect(isDuplicate("old-id")).toBe(false);
+    expect(isDuplicate("new-id")).toBe(true);
+    expect(seenCount()).toBe(1);
+  });
 });
 
 describe("clearSeen", () => {
