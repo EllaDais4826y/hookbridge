@@ -14,6 +14,22 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
+/**
+ * Extracts a flat string-valued headers map from an IncomingMessage.
+ * Array-valued headers (e.g. set-cookie) are joined with ", ".
+ */
+function extractHeaders(req: IncomingMessage): Record<string, string> {
+  const headers: Record<string, string> = {};
+  for (const [k, v] of Object.entries(req.headers)) {
+    if (typeof v === "string") {
+      headers[k] = v;
+    } else if (Array.isArray(v)) {
+      headers[k] = v.join(", ");
+    }
+  }
+  return headers;
+}
+
 export function createBatchMiddleware(): Middleware {
   return async function batchMiddleware(
     req: IncomingMessage,
@@ -41,16 +57,11 @@ export function createBatchMiddleware(): Middleware {
       body = rawBody;
     }
 
-    const headers: Record<string, string> = {};
-    for (const [k, v] of Object.entries(req.headers)) {
-      if (typeof v === "string") headers[k] = v;
-    }
-
     const entry: BatchEntry = {
       id: generateRequestId(),
       receivedAt: new Date().toISOString(),
       body,
-      headers,
+      headers: extractHeaders(req),
     };
 
     addToBatch(entry);
