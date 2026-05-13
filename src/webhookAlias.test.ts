@@ -25,6 +25,11 @@ describe("addAlias", () => {
     addAlias("dup", "/new");
     expect(resolveAlias("dup")).toBe("/new");
   });
+
+  it("stores alias without optional description", () => {
+    const entry = addAlias("no-desc", "/hooks/no-desc");
+    expect(entry.description).toBeUndefined();
+  });
 });
 
 describe("getAlias", () => {
@@ -57,6 +62,10 @@ describe("listAliases", () => {
     const list = listAliases();
     expect(list).toHaveLength(2);
     expect(list.map((e) => e.alias)).toEqual(expect.arrayContaining(["a", "b"]));
+  });
+
+  it("returns an empty array when no aliases are stored", () => {
+    expect(listAliases()).toEqual([]);
   });
 });
 
