@@ -47,3 +47,23 @@ export function extractTenantId(
   if (Array.isArray(val)) return val[0];
   return val;
 }
+
+/**
+ * Adds an endpoint URL to an existing tenant's endpoint list.
+ * Does nothing if the tenant does not exist or the endpoint is already registered.
+ *
+ * @param tenantId - The tenant to update.
+ * @param endpoint - The endpoint URL to add.
+ * @returns `true` if the endpoint was added, `false` if the tenant was not found
+ *          or the endpoint was already present.
+ */
+export function addEndpointToTenant(
+  tenantId: string,
+  endpoint: string
+): boolean {
+  const t = tenants.get(tenantId);
+  if (!t) return false;
+  if (t.endpoints.includes(endpoint)) return false;
+  t.endpoints.push(endpoint);
+  return true;
+}
