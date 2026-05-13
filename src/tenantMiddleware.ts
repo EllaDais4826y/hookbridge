@@ -39,3 +39,16 @@ export function createTenantMiddleware(
     next();
   };
 }
+
+/**
+ * Returns a snapshot of the resolved endpoints attached to a request.
+ * Useful for logging or diagnostics without mutating the request object.
+ *
+ * @param req - The incoming request, potentially enriched by tenant middleware.
+ * @returns The resolved endpoints array, or an empty array if none are attached.
+ */
+export function getResolvedEndpoints(
+  req: IncomingMessage & { resolvedEndpoints?: string[] }
+): string[] {
+  return req.resolvedEndpoints ?? [];
+}
